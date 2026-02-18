@@ -18,8 +18,11 @@ from config import (
     load_fellows,
     load_schedule,
 )
+from excuse_analyzer import analyze_excuse
 from gmail_client import (
     build_service,
+    get_message_body,
+    get_no_image_messages_for_date,
     get_senders_for_date,
     get_senders_without_image_for_date,
 )
@@ -85,6 +88,11 @@ def main() -> None:
         default=Path(__file__).resolve().parent,
         help="Directory containing schedule.yaml, fellows.yaml, credentials.json",
     )
+    parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Skip LLM analysis of excuse emails (list senders only); set GEMINI_API_KEY to enable LLM",
+    )
     args = parser.parse_args()
 
     off_dates = {_parse_date(d) for d in args.off}
@@ -109,9 +117,11 @@ def main() -> None:
     dates_to_fetch = {t[0] for t in expected}
     senders_by_date = {}
     no_image_senders_by_date = {}
+    no_image_messages_by_date = {}
     for d in sorted(dates_to_fetch):
         senders_by_date[d] = get_senders_for_date(service, d)
         no_image_senders_by_date[d] = get_senders_without_image_for_date(service, d)
+        no_image_messages_by_date[d] = get_no_image_messages_for_date(service, d)
 
     report = mark_present(expected, senders_by_date, fellows_map)
 
@@ -151,16 +161,21 @@ def main() -> None:
             line += f" (absent: {', '.join(absent_names)})"
         print(line)
 
-    # Possible excuse emails (no image attached)
-    any_no_image = any(no_image_senders_by_date.get(d) for d in sorted(dates_to_fetch))
+    # Possible excuse emails (no image attached); optionally analyze with LLM
+    any_no_image = any(no_image_messages_by_date.get(d) for d in sorted(dates_to_fetch))
     if any_no_image:
-        print("\nPossible excuse emails (no image attached):")
+        print("\nPossible excuse emails:")
+        use_llm = not args.no_llm
         for d in sorted(dates_to_fetch):
-            senders = no_image_senders_by_date.get(d, [])
-            if senders:
-                for email, display_name in senders:
-                    who = f"{display_name} <{email}>" if display_name else email
-                    print(f"  {d}: {who}")
+            messages = no_image_messages_by_date.get(d, [])
+            for message_id, email, display_name in messages:
+                who = f"{display_name} <{email}>" if display_name else email
+                print(f"  {d}: {who}")
+                if use_llm:
+                    body = get_message_body(service, message_id)
+                    analysis = analyze_excuse(body, sender_email=email, sender_name=display_name)
+                    print(f"    Reason: {analysis['reason']}")
+                    print(f"    Suggestion: {analysis['suggestion'].upper()} — {analysis['explanation']}")
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

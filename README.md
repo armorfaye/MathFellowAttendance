@@ -6,7 +6,7 @@ A script that checks which math fellows submitted attendance by reading emails s
 
 - **Attendance from photo emails** – Queries Gmail for messages with image attachments (jpg, jpeg, png, heic, gif) on expected session dates and matches senders to fellows.
 - **Reveal sender email** – For each fellow marked present, the script shows the matched sender email in the console and includes it in the CSV report.
-- **Possible excuse emails** – Lists senders of messages to mathcenter on the same dates that do *not* have an image attachment, so you can follow up as potential “asking to be excused” emails.
+- **Possible excuse emails** – Lists senders of messages to mathcenter on the same dates that do *not* have an image attachment. With a **Google Gemini API key** (free), the script uses Gemini to extract the **reason** given for absence and a **suggestion** (approve or reject) with a short explanation.
 - **Blue / Gold weeks** – Uses `schedule.yaml` to determine expected fellows per session; supports `--week blue` or `--week gold`.
 - **Holidays / days off** – Exclude dates with `--off YYYY-MM-DD` (e.g. holidays).
 - **Custom date range** – Override the default (current week Sunday–Saturday) with `--start` and `--end`.
@@ -19,7 +19,7 @@ A script that checks which math fellows submitted attendance by reading emails s
 3. It queries Gmail for:
    - **With image attachment** – Messages with image attachments on those dates → counted as attendance; senders are matched to fellows via `fellows.yaml` or name fallback.
    - **Without image attachment** – All other messages to mathcenter on those dates → listed in the final summary as “Possible excuse emails.”
-4. It prints a per-session report (present/absent with email when present), a summary, and the list of no-image senders when any exist. You can also write the report to a CSV file.
+4. It prints a per-session report (present/absent with email when present), a summary, and for each possible excuse email: sender, and if `GEMINI_API_KEY` is set, the **reason** extracted from the email and an **approve/reject suggestion** with explanation. You can also write the report to a CSV file.
 
 ## Setup
 
@@ -47,7 +47,17 @@ When you run the script for the first time, a browser window will open so you ca
 
 **Important:** Do not commit `credentials.json` or `token.json` to version control. They are listed in `.gitignore`.
 
-### 3. Schedule and fellow mapping
+### 3. Google Gemini API (optional, free – for excuse analysis)
+
+To have the script analyze excuse emails (reason + approve/reject suggestion), set a **Gemini API key** (free):
+
+```bash
+export GEMINI_API_KEY=your-key-here
+```
+
+Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey). If `GEMINI_API_KEY` is not set, the script only lists possible excuse senders without LLM analysis. Use `--no-llm` to skip LLM even when the key is set.
+
+### 4. Schedule and fellow mapping
 
 - **`schedule.yaml`** – Blue/Gold schedule (session times and fellow assignments). Edit when session times or fellow lists change.
 - **`fellows.yaml`** – Optional. Map fellow names to email addresses or display-name variants so the script can match senders to fellows. If a fellow has no entry, the script tries to match by name (e.g. "Jerry Liu" vs "Liu, Jerry").
@@ -110,12 +120,13 @@ The CSV includes columns: `date`, `day`, `session`, `time`, `fellow`, `status`, 
 | `--end` | End date (YYYY-MM-DD). Default: Saturday of current week |
 | `--output`, `-o` | Write CSV report to this file |
 | `--config-dir` | Directory with schedule.yaml, fellows.yaml, credentials.json (default: script directory) |
+| `--no-llm` | Skip LLM analysis of excuse emails (list senders only); requires GEMINI_API_KEY for analysis |
 
 ## Careful usage
 
 - **Account** – The script uses the Gmail account that completed OAuth (typically mathcenter@peddie.org). Ensure you sign in with the correct account so it only reads the intended inbox.
 - **Sensitive data** – Console output and CSV may contain email addresses. Store or share CSV files and logs appropriately.
-- **No-image list** – “Possible excuse emails” are *all* messages to mathcenter on the checked dates that do not have an image attachment. This can include non-fellow mail (e.g. other staff, lists). Use the list as a cue to follow up, not as a definitive list of excuse requests.
+- **No-image list** – “Possible excuse emails” are *all* messages to mathcenter on the checked dates that do not have an image attachment. This can include non-fellow mail (e.g. other staff, lists). The LLM suggestion is advisory only; use it as a cue to follow up, not as an automatic approval.
 - **Matching** – A sender is matched to at most one fellow per session. If multiple fellows share an email or alias, only one will be marked present; keep `fellows.yaml` accurate and use distinct aliases where possible.
 - **Date range** – Default is the current week (Sunday–Saturday). For past or future weeks use `--start` and `--end` so only the intended dates are queried.
 

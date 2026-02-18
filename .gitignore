@@ -1,6 +1,7 @@
-# Gmail OAuth - do not commit
+# Secrets - do not commit
 credentials.json
 token.json
+.env
 
 # Python
 __pycache__/

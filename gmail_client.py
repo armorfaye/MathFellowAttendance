@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os
+import base64
+import re
 from datetime import date
 from pathlib import Path
 from typing import List, Tuple
@@ -132,6 +133,36 @@ def list_message_ids_to_mathcenter(
     return [m["id"] for m in messages]
 
 
+def get_message_body(service, message_id: str) -> str:
+    """
+    Get the plain-text body of a message. Handles simple and multipart messages.
+    Returns empty string if no text body found.
+    """
+    msg = service.users().messages().get(userId="me", id=message_id, format="full").execute()
+    payload = msg.get("payload", {})
+    body_data = payload.get("body", {}).get("data")
+    if body_data:
+        try:
+            return base64.urlsafe_b64decode(body_data).decode("utf-8", errors="replace").strip()
+        except Exception:
+            pass
+    for part in payload.get("parts", []):
+        if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
+            try:
+                return base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace").strip()
+            except Exception:
+                pass
+    for part in payload.get("parts", []):
+        if part.get("mimeType") == "text/html" and part.get("body", {}).get("data"):
+            try:
+                html = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
+                text = re.sub(r"<[^>]+>", " ", html)
+                return " ".join(text.split()).strip()
+            except Exception:
+                pass
+    return ""
+
+
 def get_sender(service, message_id: str) -> Tuple[str, str]:
     """
     Get (email_address, display_name) for the sender of the message.
@@ -207,3 +238,27 @@ def get_senders_without_image_for_date(
             seen.add(key)
             senders.append((email, name))
     return senders
+
+
+def get_no_image_messages_for_date(
+    service,
+    d: date,
+    to: str = "mathcenter@peddie.org",
+) -> List[Tuple[str, str, str]]:
+    """
+    Return list of (message_id, email, display_name) for messages received on date d
+    that do NOT have an image attachment. Use for fetching body and LLM analysis.
+    """
+    from datetime import timedelta
+    day_after = d + timedelta(days=1)
+    with_image_ids = set(
+        list_message_ids_with_attachment(service, d, day_after, to=to)
+    )
+    all_ids = list_message_ids_to_mathcenter(service, d, day_after, to=to)
+    result = []
+    for mid in all_ids:
+        if mid in with_image_ids:
+            continue
+        email, name = get_sender(service, mid)
+        result.append((mid, email, name))
+    return result
