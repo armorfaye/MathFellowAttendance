@@ -1,0 +1,36 @@
+# Math Fellow Session schedule
+# Sunday is the first day of the week. Edit this file when the schedule changes.
+
+blue:
+  sunday:
+    - time: "7:30-8:30"
+      fellows: [Sophie Liz Wang, Leslie Han]
+    - time: "8:30-9:30"
+      fellows: [Aiden Wan, Allison Li]
+  tuesday:
+    - time: "7:30-8:30"
+      fellows: [Olivia Lu, Sarah Karlekar]
+    - time: "8:30-9:30"
+      fellows: [Sofia Cervantes, Jaden Heble]
+  thursday:
+    - time: "7:00-8:00"
+      fellows: [Isabelle Reeder, Samantha Kent]
+    - time: "8:00-9:00"
+      fellows: [Jerry Yao, Aiden Wan]
+
+gold:
+  sunday:
+    - time: "7:30-8:30"
+      fellows: [Chloe Yang, Chloe Cheng]
+    - time: "8:30-9:30"
+      fellows: [Ethan Gao, Jerry Liu]
+  tuesday:
+    - time: "7:30-8:30"
+      fellows: [Jerry Liu, Ashwin Narayan]
+    - time: "8:30-9:30"
+      fellows: [Jihyung Lee, Sophia Kong]
+  thursday:
+    - time: "7:00-8:00"
+      fellows: [Aarav Kumar, Sofia Cervantes]
+    - time: "8:00-9:00"
+      fellows: [Aria Shi, Yixing Shi]
